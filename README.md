@@ -1,36 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Resource Sharing Hub
 
-## Getting Started
+A site where students share study material: sign in, upload documents (PDF, Word, images, text), browse and filter them, and download them. Downloads are counted.
 
-First, run the development server:
+**Stack:** Next.js 15 (App Router), React 19, Tailwind CSS 4, Firebase (Auth, Firestore, Storage), Zustand, react-hot-toast.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Getting started
+
+Create `.env` with your Firebase web config:
+
+```
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=   # currently read as the Firebase appId in firebase.js
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+```bash
+npm install
+npm run dev     # http://localhost:3000
+npm run build
+npm run lint
+```
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## Layout
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Path | Purpose |
+| --- | --- |
+| `app/` | Pages: landing, `login`, `signup`, `resources` (+ `[id]`), `upload-resources`, `profile` (+ `edit`), `about` |
+| `app/Header.jsx` | Client nav bar that follows Firebase auth state |
+| `actions/resources.js` | Server actions that read `student_posts` |
+| `actions/upload.js` | Server action that uploads a file to Storage and writes the post |
+| `app/api/increment-download` | Increments a post's download counter |
+| `store/store.js` | Zustand store persisted to localStorage |
+| `firebase/` | Draft security rules and Firestore indexes (not deployed) |
 
-## Learn More
+## Known limitation: server-side writes are unauthenticated
 
-To learn more about Next.js, take a look at the following resources:
+`uploadDocument` and `/api/increment-download` use the Firebase **client** SDK on the server, so they run without a signed-in user and trust a client-supplied `authorId`. They only work while Firestore/Storage rules are open.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The rules in `firebase/` are the target state. Before deploying them, move uploads and download counting to either client-side writes by the signed-in user, or `firebase-admin` with ID-token verification. Deploying them as-is will break uploads and the download counter.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Deploy indexes with `firebase deploy --only firestore:indexes` (the profile page needs the `authorId` + `uploadDate` index).

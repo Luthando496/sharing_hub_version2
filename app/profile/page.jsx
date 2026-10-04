@@ -1,13 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
-// Removed unused icons: Edit, Save, X. Kept the rest.
-import { User, LogOut, Book, Download, Calendar } from "lucide-react";
+import { User, LogOut, Book, Download, Calendar, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useUserStore } from "@/store/store";
 import { auth, db } from "@/firebase";
 import { signOut, onAuthStateChanged } from "firebase/auth";
-// Removed unused firestore/storage functions: updateDoc, ref, uploadBytes, getDownloadURL
 import {
   collection,
   getDocs,
@@ -19,11 +17,12 @@ import {
   setDoc,
 } from "firebase/firestore";
 import Image from "next/image";
+import LoadingPage from "../resources/loading";
+import Thumb from "../components/Thumb";
 
 export default function ProfilePage() {
   const [student, setStudent] = useState(null);
   const [userResources, setUserResources] = useState([]);
-  // Removed state related to editing: isEditing, uploadingImage, saving, formData
   const [loading, setLoading] = useState(true);
   const route = useRouter();
   const { logout } = useUserStore((state) => state);
@@ -40,7 +39,7 @@ export default function ProfilePage() {
     });
 
     return () => unsubscribe();
-  }, [route]); // Added route to dependency array as it's used inside useEffect
+  }, [route]);
 
   const fetchStudentData = async (uid) => {
     try {
@@ -52,7 +51,6 @@ export default function ProfilePage() {
           ...studentDoc.data(),
         });
       } else {
-        // If student document doesn't exist, create a basic one
         const currentUser = auth.currentUser;
         if (currentUser) {
           const basicStudentData = {
@@ -67,7 +65,6 @@ export default function ProfilePage() {
           };
           setStudent(basicStudentData);
 
-          // Create the document in Firestore
           await setDoc(doc(db, "students", currentUser.uid), basicStudentData);
         }
       }
@@ -84,13 +81,14 @@ export default function ProfilePage() {
         orderBy("uploadDate", "desc")
       );
       const resourcesSnapshot = await getDocs(resourcesQuery);
-      const resources = resourcesSnapshot.docs.map((doc) => {
-        const data = doc.data();
+      const resources = resourcesSnapshot.docs.map((d) => {
+        const data = d.data();
         return {
-          id: doc.id,
+          id: d.id,
           ...data,
-          // Convert the Firestore Timestamp to a JavaScript Date object
-          uploadDate: data.uploadDate.toDate().toISOString(),
+          uploadDate: data.uploadDate?.toDate
+            ? data.uploadDate.toDate().toISOString()
+            : "",
         };
       });
       setUserResources(resources);
@@ -109,206 +107,150 @@ export default function ProfilePage() {
     }
   };
 
-  // Removed all handler functions related to editing:
-  // handleInputChange, handleImageUpload, handleSaveProfile, handleCancelEdit
-
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading profile...</p>
-        </div>
-      </div>
-    );
+    return <LoadingPage />;
   }
 
+  const totalDownloads = userResources.reduce(
+    (acc, resource) => acc + (resource.downloads || 0),
+    0
+  );
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Profile Header - Simplified to remove editing UI */}
-      <section className="py-8 bg-gradient-to-r from-blue-500 to-indigo-600">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-center gap-6">
-            <div className="relative">
-              <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center overflow-hidden">
-                {student?.profile_image ? (
-                  <Image
-                    width={452}
-                    height={420}
-                    src={student.profile_image}
-                    alt={`${student.studentName} ${student.studentSurname}`}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <User size={48} className="text-gray-400" />
-                )}
-              </div>
+    <div className="px-5 pb-6 pt-10">
+      <div className="mx-auto max-w-6xl space-y-10">
+        {/* Profile card */}
+        <section className="card relative overflow-hidden bg-brand p-6 text-brand-ink sm:p-10">
+          <span
+            aria-hidden
+            className="absolute -right-8 -top-8 h-32 w-32 rounded-full border-2 border-line bg-sun"
+          />
+          <div className="relative flex flex-col items-center gap-6 text-center md:flex-row md:text-left">
+            <div className="grid h-28 w-28 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-line bg-surface text-muted">
+              {student?.profile_image ? (
+                <Image
+                  width={112}
+                  height={112}
+                  src={student.profile_image}
+                  alt={`${student.studentName} ${student.studentSurname}`}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <User size={52} />
+              )}
             </div>
 
-            <div className="flex-1 text-center md:text-left">
-              {/* Removed conditional rendering for editing */}
-              <h1 className="text-2xl md:text-3xl font-bold text-white">
+            <div className="min-w-0 flex-1">
+              <h1 className="font-display text-3xl font-extrabold sm:text-4xl">
                 {student?.studentName} {student?.studentSurname}
               </h1>
-              <p className="text-blue-100">{student?.email}</p>
-              <p className="text-blue-100 mt-2">{student?.bio}</p>
+              <p className="mt-1 break-all opacity-90">{student?.email}</p>
+              {student?.bio && <p className="mt-3 opacity-90">{student.bio}</p>}
+              {student?.module && (
+                <span className="tag mt-3 bg-sun">{student.module}</span>
+              )}
 
-              <div className="mt-4">
-                <span className="px-3 py-1 bg-blue-600 text-white text-sm rounded-full">
-                  {student?.module}
-                </span>
-              </div>
-
-              <div className="flex flex-wrap gap-4 mt-4 justify-center md:justify-start">
-                <div className="text-white">
-                  <span className="font-bold">{userResources.length}</span>
-                  <span className="text-blue-100 ml-1">Resources</span>
-                </div>
-                <div className="text-white">
-                  <span className="font-bold">
-                    {userResources.reduce(
-                      (acc, resource) => acc + resource.downloads,
-                      0
-                    )}
-                  </span>
-                  <span className="text-blue-100 ml-1">Downloads</span>
-                </div>
-                <div className="text-white">
-                  <span className="text-blue-100">Joined </span>
-                  <span className="font-bold">
-                    {student?.join_date
+              <div className="mt-5 flex flex-wrap justify-center gap-3 md:justify-start">
+                {[
+                  { value: userResources.length, label: "Resources" },
+                  { value: totalDownloads, label: "Downloads" },
+                  {
+                    value: student?.join_date
                       ? new Date(student.join_date).toLocaleDateString()
-                      : "N/A"}
-                  </span>
-                </div>
+                      : "N/A",
+                    label: "Joined",
+                  },
+                ].map(({ value, label }) => (
+                  <div
+                    key={label}
+                    className="rounded-2xl border-2 border-line bg-surface px-4 py-2 text-ink"
+                  >
+                    <div className="font-display text-xl font-extrabold">
+                      {value}
+                    </div>
+                    <div className="text-xs text-muted">{label}</div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="flex gap-3">
-              {/* Removed Edit/Save/Cancel buttons, only Logout remains */}
-              <button
-                onClick={handleLogout}
-                className="bg-white text-amber-600 cursor-pointer hover:bg-gray-100 font-semibold py-2 px-4 rounded-lg transition duration-300 flex items-center gap-2"
-              >
-                <LogOut size={18} />
-                Logout
+            <div className="flex w-full flex-col gap-3 sm:w-auto">
+              <Link href="/profile/edit" className="btn btn-sun">
+                <Pencil size={16} /> Edit profile
+              </Link>
+              <button onClick={handleLogout} className="btn">
+                <LogOut size={16} /> Log out
               </button>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Student Information Section - Simplified to remove editing UI */}
-      <section className="py-8 bg-white">
-        <div className="container mx-auto px-4">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">
-            Student Information
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                Personal Details
-              </h3>
-              <div className="space-y-2">
-                <p>
-                  <span className="font-medium">Full Name:</span>{" "}
-                  {student?.studentName} {student?.studentSurname}
-                </p>
-                <p>
-                  <span className="font-medium">Email:</span> {student?.email}
-                </p>
-                <p>
-                  <span className="font-medium">Module:</span> {student?.module}
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="text-lg font-semibold text-gray-700 mb-2">Bio</h3>
-              <p className="text-gray-600">{student?.bio}</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Section to display user's uploaded resources */}
-      <section className="py-12 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">
-            My Uploaded Resources
+        {/* Uploads */}
+        <section>
+          <h2 className="section-title mb-8">
+            My <span className="highlight">uploads</span>
           </h2>
           {userResources.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {userResources.map((resource) => (
-                <div
+                <article
                   key={resource.id}
-                  className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col"
+                  className="card card-hover flex flex-col overflow-hidden"
                 >
                   <Link href={`/resources/${resource.id}`}>
-                    <div className="h-48 bg-gray-200 flex items-center justify-center">
-                      {resource.image ? (
-                        <Image
-                          width={452}
-                          height={300}
-                          src={resource.image}
-                          alt={resource.title}
-                          className="w-full h-full object-center"
-                        />
-                      ) : (
-                        <Book size={48} className="text-gray-400" />
-                      )}
-                    </div>
+                    <Thumb
+                      src={resource.image}
+                      alt={resource.title}
+                      className="h-44 w-full border-b-2 border-line"
+                    />
                   </Link>
-                  <div className="p-6 flex flex-col flex-grow">
-                    <p className="text-sm text-amber-600 font-semibold">
-                      {resource.type} - {resource.category}
+                  <div className="flex flex-1 flex-col p-5">
+                    <p className="text-sm font-bold text-brand">
+                      {resource.type} · {resource.category}
                     </p>
-                    <h3 className="text-xl font-bold text-gray-900 mt-2 mb-2 hover:text-blue-600">
-                      <Link href={`/resources/${resource.id}`}>
+                    <h3 className="mb-2 mt-1 text-xl font-bold">
+                      <Link
+                        href={`/resources/${resource.id}`}
+                        className="hover:underline"
+                      >
                         {resource.title}
                       </Link>
                     </h3>
-                    <p className="text-gray-600 text-sm flex-grow">
-                      {resource.description.length > 100
+                    <p className="flex-1 text-sm text-muted">
+                      {(resource.description || "").length > 100
                         ? `${resource.description.substring(0, 100)}...`
                         : resource.description}
                     </p>
-                    <div className="mt-4 border-t pt-4 flex justify-between items-center text-sm text-gray-500">
-                      <div className="flex items-center gap-2">
+                    <div className="mt-4 flex items-center justify-between border-t-2 border-dashed border-line/40 pt-4 text-sm text-muted">
+                      <span className="inline-flex items-center gap-2">
                         <Calendar size={16} />
-                        <span>
-                          {new Date(resource.uploadDate).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
+                        {resource.uploadDate
+                          ? new Date(resource.uploadDate).toLocaleDateString()
+                          : "Unknown"}
+                      </span>
+                      <span className="inline-flex items-center gap-2">
                         <Download size={16} />
-                        <span>{resource.downloads} Downloads</span>
-                      </div>
+                        {resource.downloads || 0}
+                      </span>
                     </div>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
           ) : (
-            <div className="text-center py-10 px-6 bg-white rounded-lg shadow-md">
-              <Book size={48} className="mx-auto text-gray-400" />
-              <h3 className="mt-4 text-xl font-semibold text-gray-800">
-                No Resources Found
-              </h3>
-              <p className="mt-2 text-gray-600">
-                You have not uploaded any resources yet. Why not share something
-                with the community?
+            <div className="card mx-auto max-w-lg p-10 text-center">
+              <Book size={48} className="mx-auto text-brand" />
+              <h3 className="mt-4 text-2xl font-bold">Nothing uploaded yet</h3>
+              <p className="mt-2 text-muted">
+                Share your first set of notes with the community.
               </p>
-              <Link href="/upload">
-                <span className="mt-6 inline-block bg-amber-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-amber-600 transition-colors">
-                  Upload a Resource
-                </span>
+              <Link href="/upload-resources" className="btn btn-pop mt-6">
+                Upload a resource
               </Link>
             </div>
           )}
-        </div>
-      </section>
+        </section>
+      </div>
     </div>
   );
 }

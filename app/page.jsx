@@ -1,160 +1,267 @@
 import Link from "next/link";
-import ContentCard from "./Content";
-import { Book, Upload, Search, Users, Menu, X, ChevronRight } from 'lucide-react'; // Using Lucide for icons
+import {
+  ArrowRight,
+  Atom,
+  BookOpenText,
+  Calculator,
+  Code2,
+  Download,
+  FlaskConical,
+  FileText,
+  Landmark,
+  Search,
+  Sparkles,
+  Star,
+  Upload,
+} from "lucide-react";
 
-// Helper component for buttons
-const Button = ({ children, primary = true, onClick, className = '' }) => (
-  <button
-    onClick={onClick}
-    className={`
-      px-6 py-3 rounded-md text-sm font-semibold transition-all duration-300 ease-in-out
-      ${primary ? 'bg-btn hover:bg-btn' : 'bg-btn-secondary hover:bg-btn-secondary'}
-      ${className}
-    `}
-  >
-    {children}
-  </button>
-);
+const SUBJECTS = [
+  { name: "Mathematics", Icon: Calculator, color: "bg-sun text-on-accent" },
+  { name: "Computer Science", Icon: Code2, color: "bg-sky text-on-accent" },
+  { name: "History", Icon: Landmark, color: "bg-pop text-on-accent" },
+  { name: "Chemistry", Icon: FlaskConical, color: "bg-mint text-on-accent" },
+  { name: "Literature", Icon: BookOpenText, color: "bg-brand text-brand-ink" },
+  { name: "Physics", Icon: Atom, color: "bg-sun text-on-accent" },
+];
 
-// Main Content Sections
-const MainContent = () => {
-  const featuredResources = [
-    {
-      id: 1,
-      title: 'Mastering Calculus: Study Guide',
-      description: 'Comprehensive notes and practice problems for advanced calculus.',
-      link: '/resources/calculus-guide',
-      image: 'https://images.pexels.com/photos/3861958/pexels-photo-3861958.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
-      category: 'Mathematics'
-    },
-    {
-      id: 2,
-      title: 'Python for Beginners: Project Files',
-      description: 'Downloadable project files and code examples for your first Python projects.',
-      link: '/resources/python-beginners',
-      image: 'https://images.pexels.com/photos/546819/pexels-photo-546819.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
-      category: 'Computer Science'
-    },
-    {
-      id: 3,
-      title: 'World History Timeline: Interactive Map',
-      description: 'An interactive map detailing key events and figures in world history.',
-      link: '/resources/history-timeline',
-      image: 'https://images.pexels.com/photos/167682/pexels-photo-167682.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
-      category: 'History'
-    },
-  ];
+const STEPS = [
+  {
+    Icon: Upload,
+    title: "Drop your notes",
+    text: "Snap, scan or save your notes, then upload a PDF, Word file or image in seconds.",
+    color: "bg-sun text-on-accent",
+    tilt: "-rotate-1",
+  },
+  {
+    Icon: Search,
+    title: "Find what you need",
+    text: "Filter by subject and type, or search by title to land on the right study guide fast.",
+    color: "bg-pop text-on-accent",
+    tilt: "rotate-1",
+  },
+  {
+    Icon: Download,
+    title: "Download & ace it",
+    text: "Grab anything for free. Every download tells the author their notes helped.",
+    color: "bg-mint text-on-accent",
+    tilt: "-rotate-1",
+  },
+];
 
-  const latestUpdates = [
-    {
-      id: 4,
-      title: 'New Feature: Enhanced Search Filters',
-      description: 'Find resources even faster with our improved search and filtering options.',
-      link: '/blog/enhanced-search',
-      category: 'Platform Update'
-    },
-    {
-      id: 5,
-      title: 'Top 10 Study Tips for Midterms',
-      description: 'Expert advice to help you ace your upcoming midterm exams.',
-      link: '/blog/study-tips',
-      category: 'Study Guide'
-    },
-  ];
-
+function FloatingCard({ className = "", style, title, meta, Icon, color }) {
   return (
-    <div className="py-12 md:py-20 bg-primary">
-      <div className="container mx-auto px-4">
-        {/* Featured Resources Section */}
-        <h2 className="text-3xl md:text-4xl font-extrabold text-center mb-12 primary-text">
-          Featured Resources
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
-          {featuredResources.map(resource => (
-            <ContentCard key={resource.id} {...resource} />
-          ))}
-        </div>
-
-        {/* Latest Updates Section */}
-        <h2 className="text-3xl md:text-4xl font-extrabold text-center mb-12 primary-text">
-          Latest Updates
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
-          {latestUpdates.map(update => (
-            <ContentCard key={update.id} {...update} />
-          ))}
-        </div>
-
-        {/* Call to Action Section */}
-        <div className="text-center py-16 px-6 rounded-lg bg-secondary shadow-lg">
-          <h3 className="text-3xl font-bold mb-4 primary-text">
-            Can't Find What You're Looking For?
-          </h3>
-          <p className="text-lg mb-8 secondary-text">
-            Or perhaps you have something great to share with the community!
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
-            <Button>
-              <Search className="inline-block mr-2" size={18} />
-              Explore All Resources
-            </Button>
-            <Button primary={false}>
-              <Upload className="inline-block mr-2" size={18} />
-              Share Your Knowledge
-            </Button>
-          </div>
-        </div>
-      </div>
+    <div
+      className={`card absolute flex items-center gap-3 p-3 pr-5 ${className}`}
+      style={style}
+    >
+      <span
+        className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl border-2 border-line text-on-accent ${color}`}
+      >
+        <Icon size={22} />
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate font-display font-bold">{title}</span>
+        <span className="block text-sm text-muted">{meta}</span>
+      </span>
     </div>
   );
-};
+}
 
 export default function Home() {
   return (
     <>
-      <section className="header_img bg-cover bg-center min-h-[70vh] flex items-center">
-        <div className="px-4 mx-auto max-w-7xl text-center py-20">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold primary-text mb-6">Welcome to Resource Sharing Hub</h1>
-          <p className="text-lg md:text-xl lg:text-2xl secondary-text mb-8">Discover, Share, and Collaborate on Valuable Resources</p>
-          <div className="flex justify-center gap-4">
-            <button className="bg-btn font-semibold py-3 px-6 rounded-lg text-lg md:text-xl lg:text-2xl duration-300 cursor-pointer">Get Started</button>
-            <button className="bg-btn-secondary font-semibold py-3 px-6 rounded-lg text-lg md:text-xl lg:text-2xl duration-300 cursor-pointer">Learn More</button>
+      {/* Hero */}
+      <section className="relative overflow-hidden px-5 pb-16 pt-12 sm:pt-16 lg:pb-24">
+        <div
+          aria-hidden
+          className="absolute -bottom-10 -left-12 hidden h-44 w-44 rounded-full border-2 border-line bg-sun/50 lg:block"
+        />
+        <div
+          aria-hidden
+          className="absolute -right-10 bottom-10 h-40 w-40 rotate-12 rounded-3xl border-2 border-line bg-mint/60"
+        />
+
+        <div className="relative mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1.1fr_1fr]">
+          <div>
+            <span className="sticker mb-6">
+              <Sparkles size={16} /> By students, for students
+            </span>
+            <h1 className="font-display text-5xl font-extrabold leading-[0.98] sm:text-6xl lg:text-7xl">
+              Share notes.
+              <br />
+              <span className="highlight">Ace exams.</span>
+              <br />
+              Do it together.
+            </h1>
+            <p className="mt-6 max-w-xl text-lg text-muted sm:text-xl">
+              ResourceHub is a free pile of study guides, notes and past papers
+              uploaded by classmates. Grab what you need, share what you&apos;ve
+              got.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link href="/resources" className="btn btn-brand text-lg">
+                Browse resources <ArrowRight size={20} />
+              </Link>
+              <Link href="/upload-resources" className="btn btn-sun text-lg">
+                <Upload size={20} /> Share yours
+              </Link>
+            </div>
+          </div>
+
+          {/* Collage of resource cards */}
+          <div
+            aria-hidden
+            className="relative mx-auto h-[22rem] w-full max-w-md sm:h-[26rem]"
+          >
+            <div className="card float absolute left-1/2 top-[44%] h-64 w-52 -translate-x-1/2 -translate-y-1/2 rotate-3 bg-brand p-5 text-brand-ink sm:h-72 sm:w-60">
+              <FileText size={32} />
+              <p className="mt-4 font-display text-2xl font-extrabold leading-tight">
+                Calculus
+                <br />
+                cheat sheet
+              </p>
+              <div className="mt-6 space-y-2">
+                <div className="h-2 w-full rounded-full bg-brand-ink/40" />
+                <div className="h-2 w-4/5 rounded-full bg-brand-ink/40" />
+                <div className="h-2 w-3/5 rounded-full bg-brand-ink/40" />
+              </div>
+            </div>
+            <FloatingCard
+              Icon={Code2}
+              color="bg-sky"
+              title="Python basics"
+              meta="PDF · 128 downloads"
+              className="float-slow -left-2 top-4 -rotate-3 sm:left-0"
+              style={{ "--r": "-3deg" }}
+            />
+            <FloatingCard
+              Icon={FlaskConical}
+              color="bg-mint"
+              title="Organic chem"
+              meta="Study guide"
+              className="float -right-2 top-[58%] rotate-2 sm:right-0"
+              style={{ "--r": "2deg" }}
+            />
+            <FloatingCard
+              Icon={Landmark}
+              color="bg-pop"
+              title="WW2 timeline"
+              meta="Notes · 4.9"
+              className="float-slow bottom-0 left-2 rotate-1 sm:left-4"
+              style={{ "--r": "1deg" }}
+            />
+            <span className="sticker absolute right-6 top-0 rotate-6">
+              <Star size={14} className="fill-current" /> Free forever
+            </span>
           </div>
         </div>
       </section>
 
-      <section className="grids_section w-full mx-auto px-4 my-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 items-start">
-          <article className="w-full card-bg col-span-1 text-center p-6 border border-primary rounded-lg shadow-lg">
-            <h2 className="text-3xl font-extrabold primary-text">20+</h2>
-            <p className="mt-2 secondary-text font-normal">Documents uploaded by students.</p>
-          </article>
-          <article className="w-full card-bg col-span-1 text-center p-6 border border-primary rounded-lg shadow-lg">
-            <h2 className="text-3xl font-extrabold primary-text">300+</h2>
-            <p className="mt-2 secondary-text font-normal">Students using the website.</p>
-          </article>
-          <article className="w-full card-bg col-span-1 text-center p-6 border border-primary rounded-lg shadow-lg">
-            <h2 className="text-3xl font-extrabold primary-text">4+</h2>
-            <p className="mt-2 secondary-text font-normal">Partnered with companies.</p>
-          </article>
-          <article className="w-full card-bg col-span-1 text-center p-6 border border-primary rounded-lg shadow-lg">
-            <h2 className="text-3xl font-extrabold primary-text">12x</h2>
-            <p className="mt-2 secondary-text font-normal">Of knowledge gained by students.</p>
-          </article>
+      {/* Subject ticker */}
+      <div className="marquee -rotate-1 overflow-hidden border-y-2 border-line bg-pop py-3 text-on-accent">
+        <div className="marquee-track" aria-hidden>
+          {[...SUBJECTS, ...SUBJECTS, ...SUBJECTS, ...SUBJECTS].map(
+            ({ name, Icon }, i) => (
+              <span
+                key={i}
+                className="mx-6 inline-flex items-center gap-3 font-display text-xl font-extrabold uppercase tracking-wide sm:text-2xl"
+              >
+                <Icon size={22} /> {name} <Star size={14} className="fill-current" />
+              </span>
+            )
+          )}
+        </div>
+        <span className="sr-only">
+          Subjects: {SUBJECTS.map((s) => s.name).join(", ")}
+        </span>
+      </div>
+
+      {/* How it works */}
+      <section className="px-5 py-20">
+        <div className="mx-auto max-w-6xl">
+          <h2 className="section-title max-w-xl">
+            How it <span className="highlight">works</span>
+          </h2>
+          <ol className="mt-10 grid gap-6 md:grid-cols-3">
+            {STEPS.map(({ Icon, title, text, color, tilt }, i) => (
+              <li
+                key={title}
+                className={`card card-hover relative p-6 pt-10 ${tilt}`}
+              >
+                <span
+                  className={`absolute -top-5 left-6 grid h-12 w-12 place-items-center rounded-2xl border-2 border-line font-display text-xl font-extrabold text-on-accent ${color}`}
+                >
+                  {i + 1}
+                </span>
+                <Icon size={30} className="text-brand" />
+                <h3 className="mt-3 text-2xl font-bold">{title}</h3>
+                <p className="mt-2 text-muted">{text}</p>
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
 
-      <section className="study bg-secondary mb-10">
-        <div className="px-4 mx-auto max-w-7xl text-center py-20">
-          <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold primary-text mb-6">Enhance Your Learning Experience</h2>
-          <p className="text-lg md:text-xl lg:text-2xl secondary-text mb-8">Join a community of learners and access a wealth of resources to support your academic journey.</p>
-          <div className="flex justify-center gap-4">
-            <button className="bg-btn-secondary font-semibold py-3 px-6 rounded-lg text-lg md:text-xl lg:text-2xl duration-300 cursor-pointer">Join Now</button>
-            <button className="bg-btn-secondary font-semibold py-3 px-6 rounded-lg text-lg md:text-xl lg:text-2xl duration-300 cursor-pointer">Explore Resources</button>
+      {/* Subjects */}
+      <section className="px-5 pb-20">
+        <div className="mx-auto max-w-6xl">
+          <h2 className="section-title">
+            Pick a <span className="highlight [--hl:var(--mint)]">subject</span>
+          </h2>
+          <p className="mt-3 max-w-xl text-lg text-muted">
+            Jump straight into the stuff you&apos;re studying right now.
+          </p>
+          <div className="mt-10 grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-3">
+            {SUBJECTS.map(({ name, Icon, color }) => (
+              <Link
+                key={name}
+                href={`/resources?category=${encodeURIComponent(name)}`}
+                className={`card card-hover wiggle group flex min-h-32 flex-col justify-between p-4 sm:min-h-40 sm:p-6 ${color}`}
+              >
+                <Icon size={34} />
+                <span className="flex items-end justify-between gap-2">
+                  <span className="font-display text-lg font-extrabold leading-tight sm:text-2xl">
+                    {name}
+                  </span>
+                  <ArrowRight
+                    size={22}
+                    className="shrink-0 transition-transform group-hover:translate-x-1"
+                  />
+                </span>
+              </Link>
+            ))}
           </div>
         </div>
       </section>
-      <MainContent />
+
+      {/* Call to action */}
+      <section className="px-5">
+        <div className="card relative mx-auto max-w-6xl overflow-hidden bg-brand p-8 text-center text-brand-ink sm:p-14">
+          <span
+            aria-hidden
+            className="absolute -left-6 -top-6 h-24 w-24 rounded-full border-2 border-line bg-sun"
+          />
+          <span
+            aria-hidden
+            className="absolute -bottom-8 -right-6 h-28 w-28 rotate-12 rounded-3xl border-2 border-line bg-pop"
+          />
+          <h2 className="relative font-display text-3xl font-extrabold sm:text-5xl">
+            Got notes? Someone needs them.
+          </h2>
+          <p className="relative mx-auto mt-4 max-w-xl text-lg opacity-90">
+            Join in, upload what helped you, and help the next student study
+            smarter.
+          </p>
+          <div className="relative mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+            <Link href="/signup" className="btn btn-sun text-lg">
+              Join for free
+            </Link>
+            <Link href="/resources" className="btn text-lg">
+              Just browse
+            </Link>
+          </div>
+        </div>
+      </section>
     </>
   );
 }

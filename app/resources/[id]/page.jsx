@@ -2,18 +2,30 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
-  Download,
-  Eye,
-  Star,
-  Calendar,
-  Book,
   ArrowLeft,
+  Book,
+  Calendar,
+  Download,
   FileText,
   Share,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import { getPostById, getRelatedPosts } from "@/actions/resources";
-import Image from "next/image";
 import LoadingPage from "../loading";
+import Thumb from "../../components/Thumb";
+
+function formatDate(dateString) {
+  if (!dateString) return "Unknown date";
+  try {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  } catch {
+    return dateString;
+  }
+}
 
 export default function ResourceDetailPage() {
   const params = useParams();
@@ -26,16 +38,13 @@ export default function ResourceDetailPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const idParam = params?.id;
-        const singlePost = await getPostById(idParam);
+        const singlePost = await getPostById(params?.id);
         setResource(singlePost);
 
         if (singlePost?.category && singlePost?.id) {
-          const related = await getRelatedPosts(
-            singlePost.category,
-            singlePost.id
+          setRelatedResources(
+            await getRelatedPosts(singlePost.category, singlePost.id)
           );
-          setRelatedResources(related);
         }
       } catch (error) {
         console.error("Failed to fetch resource:", error);
@@ -52,17 +61,17 @@ export default function ResourceDetailPage() {
 
   if (!resource) {
     return (
-      <div className="min-h-screen bg-primary flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold primary-text mb-4">
-            Resource Not Found
-          </h1>
+      <div className="grid min-h-[60vh] place-items-center px-5">
+        <div className="card max-w-md p-10 text-center">
+          <h1 className="text-3xl font-extrabold">Resource not found</h1>
+          <p className="mt-2 text-muted">
+            It may have been removed, or the link is off.
+          </p>
           <button
             onClick={() => router.back()}
-            className="bg-btn hover:bg-amber-600 text-white font-semibold py-2 px-6 rounded-lg duration-500 cursor-pointer flex items-center gap-2 mx-auto"
+            className="btn btn-brand mt-6"
           >
-            <ArrowLeft size={18} />
-            Go Back
+            <ArrowLeft size={18} /> Go back
           </button>
         </div>
       </div>
@@ -71,7 +80,7 @@ export default function ResourceDetailPage() {
 
   const handleDownload = async () => {
     if (!resource?.fileURL) {
-      alert("Download URL not available");
+      toast.error("Download URL not available");
       return;
     }
 
@@ -79,9 +88,7 @@ export default function ResourceDetailPage() {
     try {
       const response = await fetch("/api/increment-download", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ postId: resource.id }),
       });
 
@@ -100,233 +107,173 @@ export default function ResourceDetailPage() {
       link.click();
       document.body.removeChild(link);
 
-      alert("Download started!");
+      toast.success("Download started!");
     } catch (error) {
       console.error("Download failed:", error);
-      alert("Failed to start download");
+      toast.error("Failed to start download");
     } finally {
       setIsDownloading(false);
     }
   };
 
-  function formatDate(dateString) {
-    if (!dateString) return "Unknown date";
-
+  const handleShare = async () => {
+    const url = window.location.href;
     try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-    } catch (error) {
-      return dateString;
-    }
-  }
-
-  const handleShare = () => {
-    if (navigator.share && resource) {
-      navigator
-        .share({
+      if (navigator.share) {
+        await navigator.share({
           title: resource.title,
           text: resource.description,
-          url: window.location.href,
-        })
-        .catch((error) => {
-          console.log("Sharing failed", error);
-          navigator.clipboard.writeText(window.location.href);
-          alert("Link copied to clipboard!");
+          url,
         });
-    } else if (resource) {
-      navigator.clipboard.writeText(window.location.href);
-      alert("Link copied to clipboard!");
+        return;
+      }
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copied to clipboard!");
+    } catch {
+      toast.error("Couldn't copy the link");
     }
   };
 
-  return (
-    <div className="min-h-screen bg-primary">
-      <header className="bg-secondary py-4">
-        <div className="container mx-auto px-4">
-          <button
-            onClick={() => router.back()}
-            className="bg-btn hover:bg-amber-600 text-white font-semibold py-2 px-4 rounded-lg duration-500 cursor-pointer flex items-center gap-2"
-          >
-            <ArrowLeft size={18} />
-            Back to Resources
-          </button>
-        </div>
-      </header>
+  const format = resource.fileName?.split(".").pop()?.toUpperCase() || "Unknown";
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-            <div className="card-bg rounded-xl shadow-lg overflow-hidden">
-              <div className="h-64 overflow-hidden">
-                <img
-                  src={resource.image}
-                  alt={resource.title}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="p-6">
-                <div className="flex flex-wrap justify-between items-start mb-4">
-                  <div className="flex gap-2 mb-2">
-                    <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-                      {resource.category}
-                    </span>
-                    <span className="px-3 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full">
-                      {resource.type}
-                    </span>
-                  </div>
-                  <div className="flex items-center">
-                    <Star size={16} className="text-amber-500 fill-current" />
-                  </div>
+  return (
+    <div className="px-5 pb-6 pt-8">
+      <div className="mx-auto max-w-6xl">
+        <button
+          onClick={() => router.back()}
+          className="btn btn-sm mb-6"
+        >
+          <ArrowLeft size={16} /> Back
+        </button>
+
+        <div className="grid gap-8 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
+            <article className="card overflow-hidden">
+              <Thumb
+                src={resource.image}
+                alt={resource.title}
+                className="h-56 w-full border-b-2 border-line sm:h-72"
+              />
+              <div className="p-5 sm:p-8">
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {resource.category && (
+                    <span className="tag bg-sky">{resource.category}</span>
+                  )}
+                  {resource.type && (
+                    <span className="tag bg-sun">{resource.type}</span>
+                  )}
                 </div>
-                <h1 className="text-3xl font-bold primary-text mb-4">
+                <h1 className="font-display text-3xl font-extrabold leading-tight sm:text-5xl">
                   {resource.title}
                 </h1>
-                <p className="secondary-text text-lg mb-6">
-                  {resource.description}
+                <p className="mt-4 whitespace-pre-line text-lg text-muted">
+                  {resource.description || "No description provided."}
                 </p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                  <div className="flex flex-col items-center p-3 bg-gray-100 rounded-lg">
-                    <Download size={20} className="text-gray-600 mb-1" />
-                    <span className="text-sm font-medium">
-                      {resource.downloads}
-                    </span>
-                    <span className="text-xs text-gray-500">Downloads</span>
-                  </div>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3">
+
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                   <button
                     onClick={handleDownload}
                     disabled={isDownloading}
-                    className="flex-1 bg-btn hover:bg-amber-600 text-white font-medium py-3 px-4 rounded-lg text-sm duration-500 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="btn btn-brand flex-1 text-lg"
                   >
                     {isDownloading ? (
                       <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                         Downloading...
                       </>
                     ) : (
                       <>
-                        <Download size={18} />
-                        Download Resource
+                        <Download size={20} /> Download
                       </>
                     )}
                   </button>
-                  <button className="px-4 py-3 border border-gray-300 rounded-lg text-sm hover:bg-gray-100 duration-500 cursor-pointer flex items-center justify-center gap-2">
-                    <Eye size={18} />
-                    Preview
-                  </button>
-                  <button
-                    onClick={handleShare}
-                    className="px-4 py-3 border border-gray-300 rounded-lg text-sm hover:bg-gray-100 duration-500 cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    <Share size={18} />
-                    Share
+                  <button onClick={handleShare} className="btn btn-sun">
+                    <Share size={18} /> Share
                   </button>
                 </div>
               </div>
-            </div>
-            <div className="card-bg rounded-xl shadow-lg p-6 mt-6">
-              <h2 className="text-xl font-bold primary-text mb-4">
-                Resource Details
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center">
-                  <Calendar size={18} className="text-gray-500 mr-2" />
-                  <div>
-                    <p className="text-sm text-gray-500">Upload Date</p>
-                    <p className="font-medium">
-                      {resource.uploadDate && formatDate(resource.uploadDate)}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center">
-                  <FileText size={18} className="text-gray-500 mr-2" />
-                  <div>
-                    <p className="text-sm text-gray-500">File Format</p>
-                    <p className="font-medium">
-                      {resource.fileName.split(".").pop()?.toUpperCase() ||
-                        "Unknown"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center">
-                  <Book size={18} className="text-gray-500 mr-2" />
-                  <div>
-                    <p className="text-sm text-gray-500">Resource Type</p>
-                    <p className="font-medium">{resource.type}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-6">
-                <h3 className="text-lg font-medium primary-text mb-2">
-                  Content Overview
-                </h3>
-              </div>
-            </div>
-          </div>
-          <div className="lg:col-span-1">
-            <div className="card-bg rounded-xl shadow-lg p-6 sticky top-6">
-              <h2 className="text-xl font-bold primary-text mb-4">
-                Related Resources
-              </h2>
-              {relatedResources.length > 0 ? (
-                <div className="space-y-4">
-                  {relatedResources.map((related) => (
-                    <div
-                      key={related.id}
-                      className="flex gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
-                      onClick={() => router.push(`/resources/${related.id}`)}
-                    >
-                      <div className="w-16 h-16 flex-shrink-0 overflow-hidden rounded">
-                        <Image
-                          width={500}
-                          height={500}
-                          src={related.image}
-                          alt={related.title}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium primary-text truncate">
-                          {related.title}
-                        </h3>
-                        <p className="text-xs text-gray-500">
-                          {related.category}
-                        </p>
-                        <div className="flex items-center mt-1">
-                          <Star
-                            size={12}
-                            className="text-amber-500 fill-current"
-                          />
-                          <span className="mx-2 text-gray-300">•</span>
-                          <Download size={12} className="text-gray-500" />
-                          <span className="text-xs text-gray-500 ml-1">
-                            {related.downloads}
-                          </span>
-                        </div>
-                      </div>
+            </article>
+
+            <section className="card p-5 sm:p-8">
+              <h2 className="text-2xl font-extrabold">Details</h2>
+              <dl className="mt-5 grid gap-5 sm:grid-cols-2">
+                {[
+                  {
+                    Icon: Download,
+                    label: "Downloads",
+                    value: resource.downloads,
+                  },
+                  {
+                    Icon: Calendar,
+                    label: "Uploaded",
+                    value: formatDate(resource.uploadDate),
+                  },
+                  { Icon: FileText, label: "File format", value: format },
+                  { Icon: Book, label: "Type", value: resource.type || "Document" },
+                ].map(({ Icon, label, value }) => (
+                  <div key={label} className="flex items-center gap-3">
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border-2 border-line bg-surface-2">
+                      <Icon size={20} />
+                    </span>
+                    <div>
+                      <dt className="text-sm text-muted">{label}</dt>
+                      <dd className="font-bold">{value}</dd>
                     </div>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          </div>
+
+          <aside className="lg:col-span-1">
+            <div className="card p-5 sm:p-6 lg:sticky lg:top-28">
+              <h2 className="text-2xl font-extrabold">Related</h2>
+              {relatedResources.length > 0 ? (
+                <ul className="mt-4 space-y-3">
+                  {relatedResources.map((related) => (
+                    <li key={related.id}>
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/resources/${related.id}`)}
+                        className="flex w-full cursor-pointer items-center gap-3 rounded-2xl border-2 border-line bg-surface p-3 text-left transition hover:-translate-y-0.5 hover:bg-surface-2"
+                      >
+                        <Thumb
+                          src={related.image}
+                          alt=""
+                          className="h-16 w-16 shrink-0 rounded-xl border-2 border-line"
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate font-bold">
+                            {related.title}
+                          </span>
+                          <span className="block text-xs text-muted">
+                            {related.category}
+                          </span>
+                          <span className="mt-1 inline-flex items-center gap-1 text-xs text-muted">
+                            <Download size={12} /> {related.downloads}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
                   ))}
-                </div>
+                </ul>
               ) : (
-                <p className="secondary-text text-center py-4">
-                  No related resources found
-                </p>
+                <p className="py-4 text-muted">No related resources yet.</p>
               )}
               <button
                 onClick={() => router.push("/resources")}
-                className="w-full mt-6 bg-btn hover:bg-amber-600 text-white font-medium py-2 px-4 rounded-lg duration-500 cursor-pointer"
+                className="btn btn-pop mt-6 w-full"
               >
-                Browse All Resources
+                Browse all resources
               </button>
             </div>
-          </div>
+          </aside>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

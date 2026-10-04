@@ -15,6 +15,18 @@ import { uploadDocument } from "@/actions/upload";
 import toast from "react-hot-toast";
 import { auth } from "@/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import PageHeader from "../components/PageHeader";
+
+const MB = 1024 * 1024;
+
+const TIPS = [
+  "Only upload content you made or have permission to share",
+  "Keep documents clear and well organized",
+  "Use accurate titles and descriptions so others can find your work",
+  "Add a thumbnail so people can preview at a glance",
+  "Documents: PDF, DOC, DOCX, TXT, JPG, PNG, GIF (20MB max)",
+  "Thumbnails: JPG, PNG, GIF (5MB max). 25MB total.",
+];
 
 export default function UploadPage() {
   const [file, setFile] = useState(null);
@@ -45,7 +57,6 @@ export default function UploadPage() {
     return () => unsubscribe();
   }, [router]);
 
-  // Helper function to format file size
   const formatFileSize = (bytes) => {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
@@ -54,12 +65,7 @@ export default function UploadPage() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  // Calculate total file size
-  const getTotalFileSize = () => {
-    const fileSize = file?.size || 0;
-    const thumbnailSize = thumbnailFile?.size || 0;
-    return fileSize + thumbnailSize;
-  };
+  const getTotalFileSize = () => (file?.size || 0) + (thumbnailFile?.size || 0);
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -82,7 +88,7 @@ export default function UploadPage() {
         return;
       }
 
-      if (selectedFile.size > 20 * 1024 * 1024) {
+      if (selectedFile.size > 20 * MB) {
         setErrorMessage("Document file size must be less than 20MB");
         return;
       }
@@ -91,8 +97,7 @@ export default function UploadPage() {
       setUploadStatus("idle");
       setErrorMessage(null);
 
-      const newTotalSize = selectedFile.size + (thumbnailFile?.size || 0);
-      if (newTotalSize > 25 * 1024 * 1024) {
+      if (selectedFile.size + (thumbnailFile?.size || 0) > 25 * MB) {
         setErrorMessage(
           "Combined file size would exceed 25MB. Please reduce file sizes."
         );
@@ -104,22 +109,19 @@ export default function UploadPage() {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
 
-      const allowedImageTypes = ["image/jpeg", "image/png", "image/gif"];
-
-      if (!allowedImageTypes.includes(selectedFile.type)) {
+      if (!["image/jpeg", "image/png", "image/gif"].includes(selectedFile.type)) {
         setErrorMessage(
           "Please select a JPEG, PNG, or GIF image for thumbnail"
         );
         return;
       }
 
-      if (selectedFile.size > 5 * 1024 * 1024) {
+      if (selectedFile.size > 5 * MB) {
         setErrorMessage("Thumbnail file size must be less than 5MB");
         return;
       }
 
-      const newTotalSize = (file?.size || 0) + selectedFile.size;
-      if (newTotalSize > 25 * 1024 * 1024) {
+      if ((file?.size || 0) + selectedFile.size > 25 * MB) {
         setErrorMessage(
           "Combined file size would exceed 25MB. Please reduce file sizes."
         );
@@ -130,8 +132,8 @@ export default function UploadPage() {
       setErrorMessage(null);
 
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setThumbnailPreview(e.target?.result);
+      reader.onload = (ev) => {
+        setThumbnailPreview(ev.target?.result);
       };
       reader.readAsDataURL(selectedFile);
     }
@@ -164,7 +166,7 @@ export default function UploadPage() {
       return;
     }
 
-    if (getTotalFileSize() > 25 * 1024 * 1024) {
+    if (getTotalFileSize() > 25 * MB) {
       setErrorMessage(
         "Combined file size exceeds 25MB. Please reduce file sizes."
       );
@@ -225,319 +227,265 @@ export default function UploadPage() {
   };
 
   const getFileIcon = () => {
-    if (!file) return <FileText size={48} className="text-accent" />;
-
+    if (!file) return <FileText size={36} className="text-brand" />;
     if (file.type === "application/pdf") {
-      return <FileText size={48} className="text-red-500" />;
+      return <FileText size={36} className="text-pop" />;
     } else if (file.type.startsWith("image/")) {
-      return <FileText size={48} className="text-green-500" />;
-    } else {
-      return <File size={48} className="text-blue-500" />;
+      return <FileText size={36} className="text-mint" />;
     }
+    return <File size={36} className="text-sky" />;
   };
 
+  const dropzone =
+    "relative rounded-2xl border-2 border-dashed border-line bg-surface-2 p-5 text-center transition hover:-translate-y-0.5 hover:bg-surface";
+
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="container mx-auto px-4 max-w-3xl">
-        <div className="bg-white rounded-xl shadow-lg p-6 md:p-8 border border-gray-200">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
-            Share Your Knowledge
-          </h1>
-          <p className="text-gray-600 mb-8">
-            Upload study materials, notes, or resources to help fellow students
-          </p>
+    <>
+      <PageHeader eyebrow="Share" title="Share your knowledge">
+        Upload notes, guides or past papers to help fellow students.
+      </PageHeader>
 
-          {/* File Size Info */}
-          {(file || thumbnailFile) && (
-            <div className="mb-6 p-4 rounded-lg bg-blue-50 border border-blue-200">
-              <div className="flex items-center mb-2">
-                <Info className="text-blue-600 mr-2" size={16} />
-                <span className="text-blue-800 font-medium">
-                  File Size Summary
-                </span>
-              </div>
-              <div className="text-sm text-blue-700 space-y-1">
-                {file && <div>Document: {formatFileSize(file.size)}</div>}
-                {thumbnailFile && (
-                  <div>Thumbnail: {formatFileSize(thumbnailFile.size)}</div>
-                )}
-                <div className="font-medium">
-                  Total: {formatFileSize(getTotalFileSize())} / 25 MB
+      <div className="px-5 pb-6">
+        <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1fr_20rem]">
+          <div className="card p-5 sm:p-8">
+            {(file || thumbnailFile) && (
+              <div className="mb-6 rounded-2xl border-2 border-line bg-sky/25 p-4">
+                <div className="mb-2 flex items-center gap-2 font-bold">
+                  <Info size={16} /> File size summary
+                </div>
+                <div className="space-y-1 text-sm">
+                  {file && <div>Document: {formatFileSize(file.size)}</div>}
+                  {thumbnailFile && (
+                    <div>Thumbnail: {formatFileSize(thumbnailFile.size)}</div>
+                  )}
+                  <div className="font-bold">
+                    Total: {formatFileSize(getTotalFileSize())} / 25 MB
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Upload Status Messages */}
-          {uploadStatus === "success" && (
-            <div className="mb-6 p-4 rounded-lg bg-green-100 border border-green-400 flex items-center">
-              <CheckCircle className="text-green-600 mr-3" />
-              <div>
-                <span className="text-green-800">
-                  Your document has been uploaded successfully!
-                </span>
-                <div className="text-sm text-green-600 mt-1">
-                  Redirecting to resources...
+            {uploadStatus === "success" && (
+              <div
+                role="status"
+                className="mb-6 flex items-center gap-3 rounded-2xl border-2 border-line bg-mint p-4 text-on-accent"
+              >
+                <CheckCircle />
+                <div>
+                  <span className="font-bold">Uploaded successfully!</span>
+                  <div className="text-sm">Redirecting to resources...</div>
                 </div>
               </div>
-            </div>
-          )}
-          {uploadStatus === "error" && (
-            <div className="mb-6 p-4 rounded-lg bg-red-100 border border-red-400 flex items-center">
-              <AlertCircle className="text-red-600 mr-3" />
-              <span className="text-red-800">{errorMessage}</span>
-            </div>
-          )}
-          {isUploading && uploadProgress && (
-            <div className="mb-6 p-4 rounded-lg bg-blue-100 border border-blue-400 flex items-center">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
-              <span className="text-blue-800">{uploadProgress}</span>
-            </div>
-          )}
+            )}
+            {uploadStatus === "error" && (
+              <div
+                role="alert"
+                className="mb-6 flex items-center gap-3 rounded-2xl border-2 border-line bg-pop p-4 text-on-accent"
+              >
+                <AlertCircle className="shrink-0" />
+                <span className="font-semibold">{errorMessage}</span>
+              </div>
+            )}
+            {uploadStatus !== "error" && errorMessage && (
+              <p role="alert" className="mb-6 font-semibold text-pop">
+                {errorMessage}
+              </p>
+            )}
+            {isUploading && uploadProgress && (
+              <div
+                role="status"
+                className="mb-6 flex items-center gap-3 rounded-2xl border-2 border-line bg-sun p-4 text-on-accent"
+              >
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                <span className="font-semibold">{uploadProgress}</span>
+              </div>
+            )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Document File
-                </label>
-                <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-accent transition-colors duration-200 cursor-pointer">
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif"
-                  />
-                  {!file ? (
-                    <div className="flex flex-col items-center">
-                      <Upload size={32} className="text-gray-400 mb-2" />
-                      <p className="text-sm text-gray-600 font-medium">
-                        Click to upload a document
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        PDF, Word, TXT, or Image (20MB max)
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between p-2 bg-gray-100 rounded-lg">
-                      <div className="flex items-center space-x-3">
-                        {getFileIcon()}
-                        <div className="text-left">
-                          <p className="text-sm font-medium text-gray-800">
-                            {file.name}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {formatFileSize(file.size)}
-                          </p>
-                        </div>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid gap-6 md:grid-cols-2">
+                <div>
+                  <span className="label">Document file</span>
+                  <div className={dropzone}>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      aria-label="Document file"
+                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                      accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif"
+                    />
+                    {!file ? (
+                      <div className="flex flex-col items-center py-4">
+                        <Upload size={32} className="mb-2 text-brand" />
+                        <p className="font-bold">Click to upload</p>
+                        <p className="mt-1 text-xs text-muted">
+                          PDF, Word, TXT or image (20MB max)
+                        </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={handleRemoveFile}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <X size={20} />
-                      </button>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="relative z-10 flex items-center justify-between gap-2 rounded-xl bg-surface p-2">
+                        <div className="flex min-w-0 items-center gap-3">
+                          {getFileIcon()}
+                          <div className="min-w-0 text-left">
+                            <p className="truncate text-sm font-bold">
+                              {file.name}
+                            </p>
+                            <p className="text-xs text-muted">
+                              {formatFileSize(file.size)}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleRemoveFile}
+                          aria-label="Remove document"
+                          className="cursor-pointer rounded-full p-1 text-pop"
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="label">Thumbnail (optional)</span>
+                  <div className={dropzone}>
+                    <input
+                      type="file"
+                      ref={thumbnailInputRef}
+                      onChange={handleThumbnailChange}
+                      aria-label="Thumbnail image"
+                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                      accept="image/jpeg, image/png, image/gif"
+                    />
+                    {!thumbnailPreview ? (
+                      <div className="flex flex-col items-center py-4">
+                        <Camera size={32} className="mb-2 text-pop" />
+                        <p className="font-bold">Add a thumbnail</p>
+                        <p className="mt-1 text-xs text-muted">
+                          JPEG, PNG, GIF (5MB max)
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="relative z-10">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={thumbnailPreview}
+                          alt="Thumbnail preview"
+                          className="h-32 w-full rounded-xl object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleRemoveThumbnail}
+                          aria-label="Remove thumbnail"
+                          className="absolute right-2 top-2 cursor-pointer rounded-full border-2 border-line bg-surface p-1 text-pop"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Thumbnail (Optional)
-                </label>
-                <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-accent transition-colors duration-200 cursor-pointer">
-                  <input
-                    type="file"
-                    ref={thumbnailInputRef}
-                    onChange={handleThumbnailChange}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    accept="image/jpeg, image/png, image/gif"
-                  />
-                  {!thumbnailPreview ? (
-                    <div className="flex flex-col items-center">
-                      <Camera size={32} className="text-gray-400 mb-2" />
-                      <p className="text-sm text-gray-600 font-medium">
-                        Add a thumbnail
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        JPEG, PNG, GIF (5MB max)
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="relative">
-                      <img
-                        src={thumbnailPreview}
-                        alt="Thumbnail Preview"
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleRemoveThumbnail}
-                        className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md text-red-500 hover:text-red-700"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  )}
+              <div>
+                <label htmlFor="title" className="label">Title</label>
+                <input
+                  id="title"
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. Introduction to Data Structures"
+                  className="field"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="description" className="label">Description</label>
+                <textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={4}
+                  placeholder="A short summary of what's inside"
+                  className="field"
+                ></textarea>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2">
+                <div>
+                  <label htmlFor="category" className="label">Subject</label>
+                  <select
+                    id="category"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="field"
+                  >
+                    <option value="Uncategorized">Uncategorized</option>
+                    <option value="Mathematics">Mathematics</option>
+                    <option value="Computer Science">Computer Science</option>
+                    <option value="History">History</option>
+                    <option value="Chemistry">Chemistry</option>
+                    <option value="Literature">Literature</option>
+                    <option value="Physics">Physics</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="type" className="label">Type</label>
+                  <select
+                    id="type"
+                    value={type}
+                    onChange={(e) => setType(e.target.value)}
+                    className="field"
+                  >
+                    <option value="Document">Document</option>
+                    <option value="Notes">Notes</option>
+                    <option value="Exercises">Exercises</option>
+                    <option value="Study Guide">Study Guide</option>
+                    <option value="Infographic">Infographic</option>
+                    <option value="Reference">Reference</option>
+                    <option value="Guide">Guide</option>
+                  </select>
                 </div>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <label
-                htmlFor="title"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Title
-              </label>
-              <input
-                id="title"
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Introduction to Data Structures"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label
-                htmlFor="description"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Description
-              </label>
-              <textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                placeholder="Provide a brief summary of the document content"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-              ></textarea>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label
-                  htmlFor="category"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Category
-                </label>
-                <select
-                  id="category"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                >
-                  <option value="Uncategorized">Uncategorized</option>
-                  <option value="Mathematics">Mathematics</option>
-                  <option value="Computer Science">Computer Science</option>
-                  <option value="History">History</option>
-                  <option value="Chemistry">Chemistry</option>
-                  <option value="Literature">Literature</option>
-                  <option value="Physics">Physics</option>
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <label
-                  htmlFor="type"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Type
-                </label>
-                <select
-                  id="type"
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                >
-                  <option value="Document">Document</option>
-                  <option value="Notes">Notes</option>
-                  <option value="Exercises">Exercises</option>
-                  <option value="Study Guide">Study Guide</option>
-                  <option value="Infographic">Infographic</option>
-                  <option value="Reference">Reference</option>
-                  <option value="Guide">Guide</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
               <button
                 type="submit"
                 disabled={isUploading}
-                className="w-full inline-flex justify-center py-3 px-4 border border-transparent shadow-sm text-lg font-medium rounded-md text-white bg-accent hover:bg-accent-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent-dark transition-colors duration-200 disabled:opacity-50"
+                className="btn btn-brand w-full text-lg"
               >
                 {isUploading ? (
                   <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
                     Uploading...
                   </>
                 ) : (
-                  "Share Resource"
+                  <>
+                    <Upload size={20} /> Share resource
+                  </>
                 )}
               </button>
-            </div>
-          </form>
-
-          <div className="mt-8">
-            <h3 className="text-xl font-semibold text-gray-800 mb-4">
-              Tips for a Great Upload
-            </h3>
-            <ul className="text-gray-600 text-sm space-y-3 list-none">
-              <li className="flex items-start">
-                <div className="h-2 w-2 rounded-full bg-blue-500 mt-2 mr-3"></div>
-                <span>
-                  Only upload content you have created or have permission to
-                  share
-                </span>
-              </li>
-              <li className="flex items-start">
-                <div className="h-2 w-2 rounded-full bg-blue-500 mt-2 mr-3"></div>
-                <span>Ensure your documents are clear and well-organized</span>
-              </li>
-              <li className="flex items-start">
-                <div className="h-2 w-2 rounded-full bg-blue-500 mt-2 mr-3"></div>
-                <span>
-                  Provide accurate titles and descriptions to help others find
-                  your content
-                </span>
-              </li>
-              <li className="flex items-start">
-                <div className="h-2 w-2 rounded-full bg-blue-500 mt-2 mr-3"></div>
-                <span>
-                  Add a thumbnail image to help others preview your document
-                </span>
-              </li>
-              <li className="flex items-start">
-                <div className="h-2 w-2 rounded-full bg-blue-500 mt-2 mr-3"></div>
-                <span>
-                  Accepted document formats: PDF, DOC, DOCX, JPG, PNG, GIF, and
-                  TXT
-                </span>
-              </li>
-              <li className="flex items-start">
-                <div className="h-2 w-2 rounded-full bg-blue-500 mt-2 mr-3"></div>
-                <span>Accepted thumbnail formats: JPG, PNG, and GIF</span>
-              </li>
-              <li className="flex items-start">
-                <div className="h-2 w-2 rounded-full bg-blue-500 mt-2 mr-3"></div>
-                <span>
-                  Maximum file size: 20MB for documents, 5MB for thumbnails,
-                  25MB total
-                </span>
-              </li>
-            </ul>
+            </form>
           </div>
+
+          <aside className="card h-fit -rotate-1 bg-sun p-6 text-on-accent lg:sticky lg:top-28">
+            <h2 className="font-display text-2xl font-extrabold">
+              Tips for a great upload
+            </h2>
+            <ul className="mt-4 space-y-3 text-sm font-medium">
+              {TIPS.map((tip) => (
+                <li key={tip} className="flex gap-3">
+                  <CheckCircle size={18} className="mt-0.5 shrink-0" />
+                  <span>{tip}</span>
+                </li>
+              ))}
+            </ul>
+          </aside>
         </div>
       </div>
-    </div>
+    </>
   );
 }

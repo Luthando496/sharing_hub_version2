@@ -5,9 +5,9 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request) {
   try {
-    const { postId } = await request.json();
+    const { postId } = await request.json().catch(() => ({}));
 
-    if (!postId) {
+    if (!postId || typeof postId !== 'string') {
       return NextResponse.json({ error: 'Post ID is required' }, { status: 400 });
     }
 

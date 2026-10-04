@@ -1,13 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Eye, EyeOff, Book, Github } from "lucide-react";
+import { Eye, EyeOff, Github } from "lucide-react";
 import { useUserStore } from "@/store/store";
-import toast, { Toaster } from "react-hot-toast";
-import Image from "next/image";
+import toast from "react-hot-toast";
 import Link from "next/link";
-import student_img from "@/public/images/3d_student.jpg";
 import { useRouter } from "next/navigation";
-import { auth, db } from "@/firebase"; // Import db as well
+import { auth, db } from "@/firebase";
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -15,87 +13,56 @@ import {
   GithubAuthProvider,
   onAuthStateChanged,
 } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore"; // Import Firestore functions
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import AuthShell from "../components/AuthShell";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const login = useUserStore((state) => state.login);
-  const navigate = useRouter();
+  const router = useRouter();
 
   useEffect(() => {
-    // Check for existing auth state
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        // Redirect to dashboard if already logged in
-        navigate.push("/resources");
-      }
+      if (user) router.push("/resources");
     });
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
-  // Function to create a student document if it doesn't exist
+  // Create a student document the first time someone signs in
   const createStudentDocument = async (user) => {
     try {
-      // Check if student document already exists
       const studentDocRef = doc(db, "students", user.uid);
       const studentDoc = await getDoc(studentDocRef);
 
-      // If document doesn't exist, create it
       if (!studentDoc.exists()) {
-        // Extract name from email (username before @)
         const username = user.email.split("@")[0];
 
         await setDoc(studentDocRef, {
           studentName: user.displayName?.split(" ")[0] || username,
           studentSurname: user.displayName?.split(" ")[1] || "",
           profile_image: user.photoURL || "",
-          module: "", // Empty initially
+          module: "",
           email: user.email,
-          bio: "", // Empty initially
+          bio: "",
           join_date: new Date().toISOString(),
         });
-
-        console.log("New student document created");
       }
     } catch (error) {
       console.error("Error creating student document:", error);
     }
   };
 
-  const handleEmailLogin = async () => {
+  const signInWith = async (signIn) => {
     setLoading(true);
     try {
-      const { user } = await signInWithEmailAndPassword(auth, email, password);
-
-      // Create or update student document
+      const { user } = await signIn();
       await createStudentDocument(user);
-
       login(user);
-      toast.success("Login successful! Redirecting...");
-      navigate.push("/resources");
-    } catch (error) {
-      console.log(error.message, "____ERROR MESSAGE");
-      toast.error(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    try {
-      const provider = new GoogleAuthProvider();
-      const { user } = await signInWithPopup(auth, provider);
-
-      // Create or update student document
-      await createStudentDocument(user);
-
-      login(user);
-      toast.success("Login successful! Redirecting...");
-      navigate.push("/resources");
+      toast.success("Welcome back! Redirecting...");
+      router.push("/resources");
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -103,119 +70,87 @@ export default function LoginPage() {
     }
   };
 
-  const handleGitHubLogin = async () => {
-    setLoading(true);
-    try {
-      const provider = new GithubAuthProvider();
-      const { user } = await signInWithPopup(auth, provider);
-
-      // Create or update student document
-      await createStudentDocument(user);
-
-      login(user);
-      toast.success("Login successful! Redirecting...");
-      navigate.push("/resources");
-    } catch (error) {
-      toast.error(error.message);
-    } finally {
-      setLoading(false);
-    }
+  const handleEmailLogin = (e) => {
+    e.preventDefault();
+    signInWith(() => signInWithEmailAndPassword(auth, email, password));
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-300">
-      <Toaster />
-
-      <div className="flex w-[900px] h-[500px] overflow-hidden rounded-2xl shadow-lg">
-        {/* Left Section */}
-        <div className="w-1/2 bg-white flex flex-col justify-center items-center p-8 relative">
-          <h2 className="text-2xl font-semibold mb-8">Login</h2>
-
+    <AuthShell title="Welcome back" subtitle="Log in to upload and track your resources.">
+      <form onSubmit={handleEmailLogin} className="space-y-4">
+        <div>
+          <label htmlFor="email" className="label">Email</label>
           <input
+            id="email"
             type="email"
+            autoComplete="email"
             onChange={(e) => setEmail(e.target.value)}
             value={email}
-            placeholder="Email"
-            className="w-full mb-4 px-4 py-2 rounded-full shadow focus:outline-none"
+            placeholder="you@school.edu"
+            className="field"
+            required
           />
-          <div className="w-full relative mb-2">
+        </div>
+        <div>
+          <label htmlFor="password" className="label">Password</label>
+          <div className="relative">
             <input
+              id="password"
               onChange={(e) => setPassword(e.target.value)}
               value={password}
               type={showPassword ? "text" : "password"}
-              placeholder="Password"
-              className="w-full px-4 py-2 rounded-full shadow focus:outline-none"
+              autoComplete="current-password"
+              placeholder="Your password"
+              className="field !pr-12"
+              required
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted"
             >
               {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
             </button>
           </div>
-
-          <div className="w-full flex justify-end mb-4">
-            <Link
-              href="/"
-              className="text-sm text-gray-500 hover:text-purple-600"
-            >
-              Forgot Password?
-            </Link>
-          </div>
-
-          <button
-            onClick={handleEmailLogin}
-            disabled={loading}
-            className="w-full cursor-pointer bg-purple-600 text-white py-2 rounded-full hover:bg-purple-700 transition disabled:opacity-50"
-          >
-            {loading ? "Logging in..." : "Login"}
-          </button>
-
-          <div className="my-4 flex items-center w-full">
-            <div className="flex-grow border-t border-gray-300"></div>
-            <span className="mx-4 text-gray-500">or</span>
-            <div className="flex-grow border-t border-gray-300"></div>
-          </div>
-
-          <div className="flex gap-4 w-full">
-            <button
-              onClick={handleGoogleLogin}
-              disabled={loading}
-              className="flex-1 flex items-center justify-center gap-2 bg-white border border-gray-300 text-gray-700 py-2 rounded-full hover:bg-gray-50 transition disabled:opacity-50"
-            >
-              Google
-            </button>
-            <button
-              onClick={handleGitHubLogin}
-              disabled={loading}
-              className="flex-1 flex items-center justify-center gap-2 bg-gray-800 text-white py-2 rounded-full hover:bg-gray-900 transition disabled:opacity-50"
-            >
-              <Github size={20} />
-              GitHub
-            </button>
-          </div>
-
-          <p className="mt-4 text-sm">
-            Don't have an account?{" "}
-            <Link href="/signup" className="text-purple-600 hover:underline">
-              Sign up
-            </Link>
-          </p>
         </div>
 
-        {/* Right Section */}
-        <div className="w-1/2 bg-purple-500 flex justify-center items-center relative">
-          <Image
-            src={student_img}
-            alt="Student_illustration"
-            width={400}
-            height={400}
-            priority
-            className="max-h-[350px]"
-          />
-        </div>
+        <button type="submit" disabled={loading} className="btn btn-brand w-full">
+          {loading ? "Logging in..." : "Log in"}
+        </button>
+      </form>
+
+      <div className="my-6 flex items-center gap-3 text-sm text-muted">
+        <span className="h-0.5 flex-1 bg-line/30" />
+        or
+        <span className="h-0.5 flex-1 bg-line/30" />
       </div>
-    </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => signInWith(() => signInWithPopup(auth, new GoogleAuthProvider()))}
+          disabled={loading}
+          className="btn"
+        >
+          Google
+        </button>
+        <button
+          type="button"
+          onClick={() => signInWith(() => signInWithPopup(auth, new GithubAuthProvider()))}
+          disabled={loading}
+          className="btn"
+        >
+          <Github size={18} /> GitHub
+        </button>
+      </div>
+
+      <p className="mt-6 text-sm text-muted">
+        New here?{" "}
+        <Link href="/signup" className="font-bold text-brand underline">
+          Create an account
+        </Link>
+      </p>
+    </AuthShell>
   );
 }
