@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { fetchAllPosts } from "../../actions/resources";
 import LoadingPage from "./loading";
 import PageHeader from "../components/PageHeader";
+import { downloadUrl } from "@/lib/resources";
 import Thumb from "../components/Thumb";
 
 const categories = [
@@ -87,7 +88,7 @@ export default function ResourcesPage() {
     }
 
     const link = document.createElement("a");
-    link.href = resource.fileURL;
+    link.href = downloadUrl(resource.fileURL);
     link.download = resource.fileName || resource.title;
     link.target = "_blank";
     document.body.appendChild(link);

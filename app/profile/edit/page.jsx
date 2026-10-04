@@ -2,19 +2,17 @@
 import { useEffect, useState } from "react";
 import { User, Save, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useUserStore } from "@/store/store";
-import { auth, db } from "@/firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@/lib/supabase/useUser";
 import Image from "next/image";
 import toast from "react-hot-toast";
 import LoadingPage from "../../resources/loading";
 import PageHeader from "../../components/PageHeader";
 
-// Only these fields can be changed from this form
-const EDITABLE = ["studentName", "studentSurname", "module", "bio"];
-
 export default function EditProfilePage() {
+  const supabase = createClient();
+  const router = useRouter();
+  const { user, loading: authLoading } = useUser();
   const [formData, setFormData] = useState({
     bio: "",
     email: "",
@@ -25,36 +23,43 @@ export default function EditProfilePage() {
   });
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const router = useRouter();
-  const { logout } = useUserStore((state) => state);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        await fetchStudentData(currentUser.uid);
-      } else {
-        router.push("/login");
+    if (authLoading) return;
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+
+    let active = true;
+    (async () => {
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (!active) return;
+
+      if (error) {
+        toast.error("Failed to load profile data.");
+      } else if (profile) {
+        setFormData({
+          studentName: profile.first_name || "",
+          studentSurname: profile.last_name || "",
+          module: profile.module || "",
+          bio: profile.bio || "",
+          profile_image: profile.avatar_url || "",
+          email: user.email || "",
+        });
       }
       setLoading(false);
-    });
-    return () => unsubscribe();
-  }, [router]);
+    })();
 
-  const fetchStudentData = async (uid) => {
-    try {
-      const studentDoc = await getDoc(doc(db, "students", uid));
-      if (studentDoc.exists()) {
-        setFormData((prev) => ({ ...prev, ...studentDoc.data() }));
-      } else {
-        toast.error("Profile not found. Please log in again.");
-        logout();
-        router.push("/login");
-      }
-    } catch (error) {
-      console.error("Error fetching student data:", error);
-      toast.error("Failed to load profile data.");
-    }
-  };
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, authLoading]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -63,23 +68,27 @@ export default function EditProfilePage() {
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
+    if (!user) return;
     setIsSaving(true);
-    try {
-      const user = auth.currentUser;
-      if (user) {
-        const updates = Object.fromEntries(
-          EDITABLE.map((key) => [key, formData[key] ?? ""])
-        );
-        await updateDoc(doc(db, "students", user.uid), updates);
-        toast.success("Profile updated!");
-        router.push("/profile");
-      }
-    } catch (error) {
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        first_name: formData.studentName.trim(),
+        last_name: formData.studentSurname.trim(),
+        module: formData.module.trim(),
+        bio: formData.bio.trim(),
+      })
+      .eq("id", user.id);
+    setIsSaving(false);
+
+    if (error) {
       console.error("Error updating profile:", error);
       toast.error("Failed to save profile changes.");
-    } finally {
-      setIsSaving(false);
+      return;
     }
+    toast.success("Profile updated!");
+    router.push("/profile");
   };
 
   if (loading) {

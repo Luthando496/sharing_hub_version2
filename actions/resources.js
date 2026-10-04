@@ -1,122 +1,67 @@
-// actions/resources.js
-'use server';
+"use server";
 
-import { db } from '../firebase';
-import { collection, doc, getDoc, query, where, limit, getDocs } from 'firebase/firestore';
+import { createClient } from "@/lib/supabase/server";
+import { RESOURCE_COLUMNS, toResource } from "@/lib/resources";
 
-//  GET ALL POSTS IN FIREBASE
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// All resources, newest first
 export async function fetchAllPosts() {
   try {
-    const postsCollection = collection(db, 'student_posts');
-    const querySnapshot = await getDocs(postsCollection);
-    const posts = [];
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("resources")
+      .select(RESOURCE_COLUMNS)
+      .order("created_at", { ascending: false });
 
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      const uploadDate = data.uploadDate && data.uploadDate.toDate
-        ? data.uploadDate.toDate().toISOString()
-        : data.uploadDate || '';
-
-      posts.push({
-        id: doc.id,
-        title: data.title || '',
-        authorId: data.authorId || '',
-        description: data.description || '',
-        category: data.category || '',
-        type: data.type || '',
-        uploadDate,
-        downloads: data.downloads || 0,
-        image: data.image || '',
-        fileName: data.fileName || '',
-        fileURL: data.fileURL || '',
-      });
-    });
-
-    return posts;
+    if (error) throw error;
+    return (data ?? []).map(toResource);
   } catch (error) {
-    console.error('Failed to fetch all posts:', error);
+    console.error("Failed to fetch all posts:", error);
     return [];
   }
 }
 
-//  GET POSTS BY ID IN FIREBASE
+// One resource by id (null when missing)
 export async function getPostById(id) {
   try {
     const postId = Array.isArray(id) ? id[0] : id;
 
-    if (!postId) {
-      console.error('No ID provided');
+    if (!postId || !UUID.test(postId)) {
       return null;
     }
 
-    const docRef = doc(db, 'student_posts', postId);
-    const docSnap = await getDoc(docRef);
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("resources")
+      .select(RESOURCE_COLUMNS)
+      .eq("id", postId)
+      .maybeSingle();
 
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      const uploadDate = data.uploadDate && data.uploadDate.toDate
-        ? data.uploadDate.toDate().toISOString()
-        : data.uploadDate || '';
-
-      return {
-        id: docSnap.id,
-        title: data.title || '',
-        description: data.description || '',
-        category: data.category || '',
-        type: data.type || '',
-        uploadDate,
-        downloads: data.downloads || 0,
-        thumbnailURL: data.thumbnailURL || '',
-        authorId: data.authorId || '',
-        image: data.image || '',
-        fileName: data.fileName || '',
-        fileURL: data.fileURL || '',
-      };
-    } else {
-      console.log('No such document!');
-      return null;
-    }
+    if (error) throw error;
+    return data ? toResource(data) : null;
   } catch (error) {
-    console.error('Error getting document:', error);
+    console.error("Error getting document:", error);
     return null;
   }
 }
 
-// Posts in the same category, excluding the current one
+// Up to 3 other resources in the same category
 export async function getRelatedPosts(category, currentPostId) {
   try {
-    const q = query(
-      collection(db, 'student_posts'),
-      where('category', '==', category),
-      limit(4)
-    );
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("resources")
+      .select(RESOURCE_COLUMNS)
+      .eq("category", category)
+      .neq("id", currentPostId)
+      .order("downloads", { ascending: false })
+      .limit(3);
 
-    const querySnapshot = await getDocs(q);
-
-    return querySnapshot.docs
-      .filter((d) => d.id !== currentPostId)
-      .slice(0, 3)
-      .map((d) => {
-        const data = d.data();
-        const uploadDate = data.uploadDate && data.uploadDate.toDate
-          ? data.uploadDate.toDate().toISOString()
-          : data.uploadDate || '';
-
-        return {
-          id: d.id,
-          title: data.title || '',
-          authorId: data.authorId || '',
-          description: data.description || '',
-          category: data.category || '',
-          type: data.type || '',
-          uploadDate,
-          downloads: data.downloads || 0,
-          image: data.image || '',
-          fileName: data.fileName || '',
-        };
-      });
+    if (error) throw error;
+    return (data ?? []).map(toResource);
   } catch (error) {
-    console.error('Error getting related posts:', error);
+    console.error("Error getting related posts:", error);
     return [];
   }
 }

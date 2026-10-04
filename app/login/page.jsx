@@ -1,78 +1,59 @@
 "use client";
-import { useState, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Eye, EyeOff, Github } from "lucide-react";
-import { useUserStore } from "@/store/store";
 import toast from "react-hot-toast";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { auth, db } from "@/firebase";
-import {
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
-  GithubAuthProvider,
-  onAuthStateChanged,
-} from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { useRouter, useSearchParams } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@/lib/supabase/useUser";
 import AuthShell from "../components/AuthShell";
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const login = useUserStore((state) => state.login);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user } = useUser();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) router.push("/resources");
-    });
-    return () => unsubscribe();
-  }, [router]);
+    if (user) router.push("/resources");
+  }, [user, router]);
 
-  // Create a student document the first time someone signs in
-  const createStudentDocument = async (user) => {
-    try {
-      const studentDocRef = doc(db, "students", user.uid);
-      const studentDoc = await getDoc(studentDocRef);
-
-      if (!studentDoc.exists()) {
-        const username = user.email.split("@")[0];
-
-        await setDoc(studentDocRef, {
-          studentName: user.displayName?.split(" ")[0] || username,
-          studentSurname: user.displayName?.split(" ")[1] || "",
-          profile_image: user.photoURL || "",
-          module: "",
-          email: user.email,
-          bio: "",
-          join_date: new Date().toISOString(),
-        });
-      }
-    } catch (error) {
-      console.error("Error creating student document:", error);
+  useEffect(() => {
+    if (searchParams.get("error") === "auth") {
+      toast.error("Sign-in didn't complete. Please try again.");
     }
+  }, [searchParams]);
+
+  const handleEmailLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Welcome back! Redirecting...");
+    router.push("/resources");
   };
 
-  const signInWith = async (signIn) => {
+  const handleOAuth = async (provider) => {
     setLoading(true);
-    try {
-      const { user } = await signIn();
-      await createStudentDocument(user);
-      login(user);
-      toast.success("Welcome back! Redirecting...");
-      router.push("/resources");
-    } catch (error) {
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+    // on success the browser is redirected to the provider
+    if (error) {
       toast.error(error.message);
-    } finally {
       setLoading(false);
     }
-  };
-
-  const handleEmailLogin = (e) => {
-    e.preventDefault();
-    signInWith(() => signInWithEmailAndPassword(auth, email, password));
   };
 
   return (
@@ -129,7 +110,7 @@ export default function LoginPage() {
       <div className="grid gap-3 sm:grid-cols-2">
         <button
           type="button"
-          onClick={() => signInWith(() => signInWithPopup(auth, new GoogleAuthProvider()))}
+          onClick={() => handleOAuth("google")}
           disabled={loading}
           className="btn"
         >
@@ -137,7 +118,7 @@ export default function LoginPage() {
         </button>
         <button
           type="button"
-          onClick={() => signInWith(() => signInWithPopup(auth, new GithubAuthProvider()))}
+          onClick={() => handleOAuth("github")}
           disabled={loading}
           className="btn"
         >
@@ -152,5 +133,14 @@ export default function LoginPage() {
         </Link>
       </p>
     </AuthShell>
+  );
+}
+
+export default function LoginPage() {
+  // useSearchParams needs a Suspense boundary for static rendering
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }

@@ -11,10 +11,10 @@ import {
   Info,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { uploadDocument } from "@/actions/upload";
+import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@/lib/supabase/useUser";
+import { uploadToImageKit } from "@/lib/imagekit";
 import toast from "react-hot-toast";
-import { auth } from "@/firebase";
-import { onAuthStateChanged } from "firebase/auth";
 import PageHeader from "../components/PageHeader";
 
 const MB = 1024 * 1024;
@@ -43,19 +43,11 @@ export default function UploadPage() {
   const fileInputRef = useRef(null);
   const thumbnailInputRef = useRef(null);
   const router = useRouter();
-  const [user, setUser] = useState(null);
+  const { user, loading: authLoading } = useUser();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-      } else {
-        router.push("/login");
-      }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
+    if (!authLoading && !user) router.push("/login");
+  }, [authLoading, user, router]);
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return "0 Bytes";
@@ -178,48 +170,56 @@ export default function UploadPage() {
     setUploadProgress("Preparing upload...");
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("title", title);
-      formData.append("description", description);
-      formData.append("category", category);
-      formData.append("type", type);
-      formData.append("authorId", user.uid);
+      const supabase = createClient();
 
+      setUploadProgress("Uploading document...");
+      const uploaded = await uploadToImageKit(file, `/resources/${user.id}`);
+
+      // Thumbnail: the chosen image, or the file itself when it is an image
+      let thumbnailUrl = file.type.startsWith("image/") ? uploaded.url : null;
       if (thumbnailFile) {
-        formData.append("thumbnail", thumbnailFile);
-        setUploadProgress("Uploading document and thumbnail...");
-      } else {
-        setUploadProgress("Uploading document...");
+        setUploadProgress("Uploading thumbnail...");
+        const thumb = await uploadToImageKit(
+          thumbnailFile,
+          `/thumbnails/${user.id}`
+        );
+        thumbnailUrl = thumb.url;
       }
 
-      const result = await uploadDocument(formData);
+      setUploadProgress("Saving...");
+      const { error } = await supabase.from("resources").insert({
+        author_id: user.id,
+        title: title.trim(),
+        description: description.trim(),
+        category,
+        type,
+        file_url: uploaded.url,
+        file_id: uploaded.fileId,
+        file_name: file.name,
+        file_size: file.size,
+        file_type: file.type,
+        thumbnail_url: thumbnailUrl,
+      });
+      if (error) throw error;
 
-      if (result && result.success) {
-        setUploadStatus("success");
-        setUploadProgress("Upload completed successfully!");
-        toast.success("Resource Shared!");
+      setUploadStatus("success");
+      setUploadProgress("Upload completed successfully!");
+      toast.success("Resource Shared!");
 
-        setTitle("");
-        setDescription("");
-        setCategory("Uncategorized");
-        setType("Document");
-        handleRemoveFile();
-        handleRemoveThumbnail();
+      setTitle("");
+      setDescription("");
+      setCategory("Uncategorized");
+      setType("Document");
+      handleRemoveFile();
+      handleRemoveThumbnail();
 
-        setTimeout(() => {
-          router.push("/resources");
-        }, 2000);
-      } else {
-        setUploadStatus("error");
-        setErrorMessage(result?.error || "Upload failed");
-        setUploadProgress("");
-      }
+      setTimeout(() => {
+        router.push("/resources");
+      }, 2000);
     } catch (error) {
+      console.error("Upload failed:", error);
       setUploadStatus("error");
-      setErrorMessage(
-        "Network error. Please check your connection and try again."
-      );
+      setErrorMessage(error?.message || "Upload failed. Please try again.");
       setUploadProgress("");
     }
 

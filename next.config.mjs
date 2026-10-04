@@ -1,30 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '25mb',
-    },
-  },
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'lh3.googleusercontent.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'avatars.githubusercontent.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'firebasestorage.googleapis.com',
-        port: '',
-        pathname: '/**',
-      },
+      // OAuth profile photos
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com', port: '', pathname: '/**' },
+      { protocol: 'https', hostname: 'avatars.githubusercontent.com', port: '', pathname: '/**' },
+      // Uploaded files and thumbnails
+      { protocol: 'https', hostname: 'ik.imagekit.io', port: '', pathname: '/**' },
     ],
   },
 };

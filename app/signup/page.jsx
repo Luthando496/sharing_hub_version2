@@ -4,10 +4,7 @@ import { Eye, EyeOff } from "lucide-react";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { auth, db } from "@/firebase";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
-import { useUserStore } from "@/store/store";
+import { createClient } from "@/lib/supabase/client";
 import AuthShell from "../components/AuthShell";
 
 export default function SignupPage() {
@@ -17,7 +14,6 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const login = useUserStore((state) => state.login);
   const router = useRouter();
 
   const handleSignup = async (e) => {
@@ -29,33 +25,30 @@ export default function SignupPage() {
     }
 
     setLoading(true);
-    try {
-      const { user } = await createUserWithEmailAndPassword(
-        auth,
-        email.trim(),
-        password
-      );
-      await updateProfile(user, {
-        displayName: `${name.trim()} ${surname.trim()}`.trim(),
-      });
+    const supabase = createClient();
+    // The database creates the profile row from this metadata (see supabase/schema.sql)
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: {
+        data: { first_name: name.trim(), last_name: surname.trim() },
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    setLoading(false);
 
-      await setDoc(doc(db, "students", user.uid), {
-        studentName: name.trim(),
-        studentSurname: surname.trim(),
-        profile_image: "",
-        module: "",
-        email: user.email,
-        bio: "",
-        join_date: new Date().toISOString(),
-      });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
 
-      login(user);
+    if (data.session) {
       toast.success("Account created! Redirecting...");
       router.push("/resources");
-    } catch (error) {
-      toast.error(error.message);
-    } finally {
-      setLoading(false);
+    } else {
+      // email confirmation is switched on in Supabase
+      toast.success("Check your email to confirm your account.", { duration: 6000 });
+      router.push("/login");
     }
   };
 

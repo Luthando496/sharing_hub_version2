@@ -1,18 +1,41 @@
 # Resource Sharing Hub
 
-A site where students share study material: sign in, upload documents (PDF, Word, images, text), browse and filter them, and download them. Downloads are counted.
+A site where students share study material: sign up, upload documents (PDF, Word, images, text), browse and filter them, and download them. Downloads are counted.
 
-**Stack:** Next.js 15 (App Router), React 19, Tailwind CSS 4, Firebase (Auth, Firestore, Storage), Zustand, react-hot-toast.
+**Stack:** Next.js 15 (App Router), React 19, Tailwind CSS 4, Supabase (Auth + Postgres), ImageKit (file storage), react-hot-toast.
 
-## Getting started
+## Setup
 
-Create `.env` with your Firebase web config:
+### 1. Environment variables (`.env`)
 
 ```
-NEXT_PUBLIC_FIREBASE_API_KEY=
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=   # currently read as the Firebase appId in firebase.js
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+
+IMAGEKIT_PUBLIC_KEY=
+IMAGEKIT_PRIVATE_KEY=
+IMAGEKIT_URL_ENDPOINT=
 ```
+
+### 2. Create the database tables
+
+Open the Supabase dashboard, go to **SQL Editor**, paste the contents of [`supabase/schema.sql`](supabase/schema.sql) and run it. It creates:
+
+| Table | Purpose |
+| --- | --- |
+| `profiles` | One row per user (name, avatar, module, bio). Created automatically on sign-up. |
+| `resources` | Uploaded study material. Stores the ImageKit file and thumbnail URLs. |
+| `posts` | Blog posts, for the upcoming blog feature. |
+
+It also adds row-level security (anyone can read, users can only change their own rows) and an `increment_download` function used by the download counter.
+
+### 3. Configure sign-in (Supabase dashboard -> Authentication)
+
+- **URL Configuration:** set the Site URL to your site (`http://localhost:3000` for local dev) and add `http://localhost:3000/auth/callback` (and your production URL's `/auth/callback`) to the Redirect URLs.
+- **Providers:** email/password works out of the box. For the Google and GitHub buttons, enable each provider and paste in its client ID and secret.
+- Optional: turn off "Confirm email" while developing if you don't want to click a link after every sign-up.
+
+### 4. Run it
 
 ```bash
 npm install
@@ -21,22 +44,26 @@ npm run build
 npm run lint
 ```
 
+## How uploads work
+
+1. The browser asks `/api/imagekit-auth` for a signature. The route only answers signed-in users and keeps the ImageKit private key on the server.
+2. The browser uploads the file (and optional thumbnail) straight to ImageKit and receives the URLs.
+3. The browser inserts a row into `resources` with those URLs. Row-level security guarantees `author_id` is the signed-in user.
+
 ## Layout
 
 | Path | Purpose |
 | --- | --- |
 | `app/` | Pages: landing, `login`, `signup`, `resources` (+ `[id]`), `upload-resources`, `profile` (+ `edit`), `about` |
-| `app/Header.jsx` | Client nav bar that follows Firebase auth state |
-| `actions/resources.js` | Server actions that read `student_posts` |
-| `actions/upload.js` | Server action that uploads a file to Storage and writes the post |
-| `app/api/increment-download` | Increments a post's download counter |
-| `store/store.js` | Zustand store persisted to localStorage |
-| `firebase/` | Draft security rules and Firestore indexes (not deployed) |
+| `app/components/` | Header (sticky nav), theme toggle, footer, shared UI |
+| `app/auth/callback` | Finishes Google / GitHub / email-confirmation sign-in |
+| `app/api/imagekit-auth` | Signs ImageKit uploads for signed-in users |
+| `app/api/increment-download` | Bumps a resource's download count via `increment_download` |
+| `actions/resources.js` | Server actions that read `resources` |
+| `lib/supabase/` | Browser client, server client and the `useUser` hook |
+| `middleware.js` | Keeps the Supabase session cookie fresh |
+| `supabase/schema.sql` | Database schema and security policies |
 
-## Known limitation: server-side writes are unauthenticated
+## Cleanup after the Firebase migration
 
-`uploadDocument` and `/api/increment-download` use the Firebase **client** SDK on the server, so they run without a signed-in user and trust a client-supplied `authorId`. They only work while Firestore/Storage rules are open.
-
-The rules in `firebase/` are the target state. Before deploying them, move uploads and download counting to either client-side writes by the signed-in user, or `firebase-admin` with ID-token verification. Deploying them as-is will break uploads and the download counter.
-
-Deploy indexes with `firebase deploy --only firestore:indexes` (the profile page needs the `authorId` + `uploadDate` index).
+These files are no longer used and can be deleted: `firebase.js`, `actions/upload.js`, the `firebase/` folder, `store/store.js`, and `app/Content.jsx`. You can also remove the `NEXT_PUBLIC_FIREBASE_*` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` lines from `.env`.

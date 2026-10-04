@@ -2,9 +2,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { onAuthStateChanged } from "firebase/auth";
 import { BookOpen, Menu, X } from "lucide-react";
-import { auth } from "@/firebase";
+import { useUser } from "@/lib/supabase/useUser";
 import ThemeToggle from "./ThemeToggle";
 
 const LINKS = [
@@ -15,15 +14,10 @@ const LINKS = [
 
 export default function Header() {
   const pathname = usePathname();
-  const [user, setUser] = useState(null);
+  const { user } = useUser();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [progress, setProgress] = useState(0);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, setUser);
-    return () => unsubscribe();
-  }, []);
 
   useEffect(() => {
     let frame = 0;

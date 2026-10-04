@@ -13,6 +13,7 @@ import toast from "react-hot-toast";
 import { getPostById, getRelatedPosts } from "@/actions/resources";
 import LoadingPage from "../loading";
 import Thumb from "../../components/Thumb";
+import { downloadUrl } from "@/lib/resources";
 
 function formatDate(dateString) {
   if (!dateString) return "Unknown date";
@@ -101,7 +102,7 @@ export default function ResourceDetailPage() {
       }
 
       const link = document.createElement("a");
-      link.href = resource.fileURL;
+      link.href = downloadUrl(resource.fileURL);
       link.download = resource.fileName || resource.title;
       document.body.appendChild(link);
       link.click();

@@ -1,24 +1,25 @@
-// app/api/increment-download/route.js
-import { db } from '@/firebase';
-import { doc, increment, updateDoc } from 'firebase/firestore';
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(request) {
   try {
     const { postId } = await request.json().catch(() => ({}));
 
-    if (!postId || typeof postId !== 'string') {
-      return NextResponse.json({ error: 'Post ID is required' }, { status: 400 });
+    if (!postId || typeof postId !== "string" || !UUID.test(postId)) {
+      return NextResponse.json({ error: "A valid post ID is required" }, { status: 400 });
     }
 
-    const postRef = doc(db, 'student_posts', postId);
-    await updateDoc(postRef, {
-      downloads: increment(1)
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("increment_download", {
+      p_resource_id: postId,
     });
+    if (error) throw error;
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error incrementing download count:', error);
-    return NextResponse.json({ error: 'Failed to increment download count' }, { status: 500 });
+    console.error("Error incrementing download count:", error);
+    return NextResponse.json({ error: "Failed to increment download count" }, { status: 500 });
   }
 }

@@ -3,108 +3,63 @@ import { useEffect, useState } from "react";
 import { User, LogOut, Book, Download, Calendar, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useUserStore } from "@/store/store";
-import { auth, db } from "@/firebase";
-import { signOut, onAuthStateChanged } from "firebase/auth";
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  doc,
-  getDoc,
-  setDoc,
-} from "firebase/firestore";
+import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@/lib/supabase/useUser";
+import { RESOURCE_COLUMNS, toResource } from "@/lib/resources";
 import Image from "next/image";
 import LoadingPage from "../resources/loading";
 import Thumb from "../components/Thumb";
 
 export default function ProfilePage() {
+  const supabase = createClient();
+  const route = useRouter();
+  const { user, loading: authLoading } = useUser();
   const [student, setStudent] = useState(null);
   const [userResources, setUserResources] = useState([]);
   const [loading, setLoading] = useState(true);
-  const route = useRouter();
-  const { logout } = useUserStore((state) => state);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        await fetchStudentData(currentUser.uid);
-        await fetchUserResources(currentUser.uid);
-      } else {
-        route.push("/login");
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [route]);
-
-  const fetchStudentData = async (uid) => {
-    try {
-      const studentDoc = await getDoc(doc(db, "students", uid));
-
-      if (studentDoc.exists()) {
-        setStudent({
-          id: studentDoc.id,
-          ...studentDoc.data(),
-        });
-      } else {
-        const currentUser = auth.currentUser;
-        if (currentUser) {
-          const basicStudentData = {
-            id: currentUser.uid,
-            studentName: currentUser.displayName?.split(" ")[0] || "User",
-            studentSurname: currentUser.displayName?.split(" ")[1] || "",
-            profile_image: "",
-            module: "Not specified",
-            email: currentUser.email || "",
-            bio: "No bio yet",
-            join_date: new Date().toISOString(),
-          };
-          setStudent(basicStudentData);
-
-          await setDoc(doc(db, "students", currentUser.uid), basicStudentData);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching student data:", error);
+    if (authLoading) return;
+    if (!user) {
+      route.push("/login");
+      return;
     }
-  };
 
-  const fetchUserResources = async (uid) => {
-    try {
-      const resourcesQuery = query(
-        collection(db, "student_posts"),
-        where("authorId", "==", uid),
-        orderBy("uploadDate", "desc")
-      );
-      const resourcesSnapshot = await getDocs(resourcesQuery);
-      const resources = resourcesSnapshot.docs.map((d) => {
-        const data = d.data();
-        return {
-          id: d.id,
-          ...data,
-          uploadDate: data.uploadDate?.toDate
-            ? data.uploadDate.toDate().toISOString()
-            : "",
-        };
+    let active = true;
+    (async () => {
+      const [{ data: profile }, { data: rows }] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+        supabase
+          .from("resources")
+          .select(RESOURCE_COLUMNS)
+          .eq("author_id", user.id)
+          .order("created_at", { ascending: false }),
+      ]);
+      if (!active) return;
+
+      setStudent({
+        id: user.id,
+        studentName: profile?.first_name || user.email?.split("@")[0] || "User",
+        studentSurname: profile?.last_name || "",
+        profile_image: profile?.avatar_url || "",
+        module: profile?.module || "",
+        bio: profile?.bio || "",
+        email: user.email || "",
+        join_date: profile?.created_at || user.created_at,
       });
-      setUserResources(resources);
-    } catch (error) {
-      console.error("Error fetching user resources:", error);
-    }
-  };
+      setUserResources((rows ?? []).map(toResource));
+      setLoading(false);
+    })();
+
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, authLoading]);
 
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      logout();
-      route.push("/resources");
-    } catch (error) {
-      console.error("Error logging out:", error);
-    }
+    await supabase.auth.signOut();
+    route.push("/resources");
   };
 
   if (loading) {
