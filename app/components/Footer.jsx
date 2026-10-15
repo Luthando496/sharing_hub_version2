@@ -3,6 +3,7 @@ import { BookOpen, Heart } from "lucide-react";
 
 const LINKS = [
   { href: "/resources", label: "Browse resources" },
+  { href: "/blog", label: "Blog" },
   { href: "/upload-resources", label: "Share your notes" },
   { href: "/about", label: "About us" },
   { href: "/login", label: "Log in" },

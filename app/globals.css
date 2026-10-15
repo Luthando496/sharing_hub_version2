@@ -277,3 +277,70 @@ h1, h2, h3, h4 {
   .float, .float-slow, .marquee-track, .pop-in, .wiggle:hover { animation: none; }
   .card, .btn, .chip { transition: none; }
 }
+
+/* ------------------------------------------------------------------
+   Blog post body
+------------------------------------------------------------------- */
+@layer components {
+  .blog-content {
+    font-size: 1.125rem;
+    line-height: 1.85;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .blog-content > * + * { margin-top: 1.4em; }
+  .blog-content p { max-width: 70ch; }
+  .blog-content h2,
+  .blog-content h3 {
+    font-weight: 800;
+    line-height: 1.15;
+    margin-top: 2.2em;
+  }
+  .blog-content h2 { font-size: 1.85rem; }
+  .blog-content h3 { font-size: 1.4rem; }
+  .blog-content a {
+    color: var(--brand);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .blog-content ul,
+  .blog-content ol { padding-left: 1.5rem; max-width: 70ch; }
+  .blog-content ul { list-style: disc; }
+  .blog-content ol { list-style: decimal; }
+  .blog-content li + li { margin-top: 0.4em; }
+  .blog-content li::marker { color: var(--brand); font-weight: 700; }
+  .blog-content blockquote {
+    border-left: 6px solid var(--pop);
+    background: var(--surface-2);
+    border-radius: 0 1rem 1rem 0;
+    padding: 1rem 1.25rem;
+    font-style: italic;
+    max-width: 70ch;
+  }
+  .blog-content blockquote > * + * { margin-top: 0.75em; }
+  .blog-content img {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    margin-inline: auto;
+    border: 2px solid var(--line);
+    border-radius: 1.25rem;
+    box-shadow: 5px 5px 0 var(--shadow);
+  }
+  .blog-content hr {
+    border: 0;
+    border-top: 3px dashed var(--line);
+    opacity: 0.4;
+    margin-block: 2.5em;
+  }
+  .blog-content code {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 0.4rem;
+    padding: 0.1em 0.4em;
+    font-size: 0.9em;
+  }
+  .blog-content strong { font-weight: 800; }
+}

@@ -29,13 +29,29 @@ Open the Supabase dashboard, go to **SQL Editor**, paste the contents of [`supab
 
 It also adds row-level security (anyone can read, users can only change their own rows) and an `increment_download` function used by the download counter.
 
-### 3. Configure sign-in (Supabase dashboard -> Authentication)
+### 3. Add the blog (run after step 2)
+
+Run [`supabase/blog.sql`](supabase/blog.sql) the same way. It adds roles, the post subtitle and cover rules, and the permissions that let only authors write.
+
+**Making someone an author** (SRC members, class reps): in the SQL Editor run
+
+```sql
+update public.profiles
+   set role = 'author'
+ where id = (select id from auth.users where email = 'src.member@school.edu');
+```
+
+They must have signed up first. Use `'admin'` for yourself (admins can also edit or delete anyone's post) and `'student'` to take access away. Nobody can change a role from the website.
+
+**Optional sample posts:** after at least one account has signed up, run [`supabase/seed-blog.sql`](supabase/seed-blog.sql) to add 8 sample posts from different faculties. Remove them later with `delete from public.posts where slug like '%-sample';`.
+
+### 4. Configure sign-in (Supabase dashboard -> Authentication)
 
 - **URL Configuration:** set the Site URL to your site (`http://localhost:3000` for local dev) and add `http://localhost:3000/auth/callback` (and your production URL's `/auth/callback`) to the Redirect URLs.
 - **Providers:** email/password works out of the box. For the Google and GitHub buttons, enable each provider and paste in its client ID and secret.
 - Optional: turn off "Confirm email" while developing if you don't want to click a link after every sign-up.
 
-### 4. Run it
+### 5. Run it
 
 ```bash
 npm install
@@ -43,6 +59,12 @@ npm run dev     # http://localhost:3000
 npm run build
 npm run lint
 ```
+
+## The blog
+
+- `/blog` lists posts, `/blog/<slug>` is the reader, `/blog/new` and `/blog/<slug>/edit` are the editor (authors only).
+- Every post has a title, subtitle, **required** cover image, optional images inside the text, the author, and published and updated dates.
+- Posts can be drafts (visible only to their author). Text uses simple formatting: a blank line starts a new paragraph, with toolbar buttons for bold, italic, headings, lists, quotes and links, a Preview tab, and an "Add image" button that uploads to ImageKit.
 
 ## How uploads work
 
@@ -63,6 +85,27 @@ npm run lint
 | `lib/supabase/` | Browser client, server client and the `useUser` hook |
 | `middleware.js` | Keeps the Supabase session cookie fresh |
 | `supabase/schema.sql` | Database schema and security policies |
+| `supabase/blog.sql` | Blog migration: roles, post rules, author-only permissions |
+| `app/blog/` | Blog list, reader and editor |
+
+## Testing
+
+```bash
+npm test              # run every test once
+npm run test:watch    # re-run automatically while you edit code
+```
+
+Tests live in `tests/` and use [Vitest](https://vitest.dev) with React Testing Library. Supabase and ImageKit are replaced with fakes, so tests never touch your real data and need no internet or `.env`.
+
+| Folder | What it covers |
+| --- | --- |
+| `tests/lib` | Data mapping, download links, the ImageKit upload helper, blog helpers, editor text tools |
+| `tests/api` | Signing route (login required, correct signature), download counter validation, OAuth callback redirect safety |
+| `tests/actions` | Reading resources from the database |
+| `tests/components` | Theme switcher, header and mobile menu, image fallback, blog renderer (safety) and post editor rules |
+| `tests/pages` | Browse page (search, filters, downloads), login and signup |
+
+When you add a feature, add a `*.test.js(x)` file in the matching folder.
 
 ## Cleanup after the Firebase migration
 
