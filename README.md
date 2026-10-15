@@ -45,6 +45,8 @@ They must have signed up first. Use `'admin'` for yourself (admins can also edit
 
 **Optional sample posts:** after at least one account has signed up, run [`supabase/seed-blog.sql`](supabase/seed-blog.sql) to add 8 sample posts from different faculties. Remove them later with `delete from public.posts where slug like '%-sample';`.
 
+**Optional sample resources:** run [`supabase/seed-resources.sql`](supabase/seed-resources.sql) to add 3 sample study resources (placeholder PDFs). Remove them with `delete from public.resources where file_id like 'sample-%';`.
+
 ### 4. Configure sign-in (Supabase dashboard -> Authentication)
 
 - **URL Configuration:** set the Site URL to your site (`http://localhost:3000` for local dev) and add `http://localhost:3000/auth/callback` (and your production URL's `/auth/callback`) to the Redirect URLs.
